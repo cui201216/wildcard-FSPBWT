@@ -23,6 +23,8 @@
 #include<cmath>
 #include <ctime>
 #include <string>
+#include <utility>      // std::pair
+#include <functional>   // std::hash
 #include"tools.h"
 #define FF 4
 using namespace std;
@@ -63,6 +65,11 @@ struct wFSPBWT {
     vector<vector<uint32_t> > fuzzyZ;
     vector<string> qIDs;
 
+    vector<Syllable> filter;
+    vector<vector<bool>> PanelSyllableHavingMissing;
+    vector<vector<bool>> QuerySyllableHavingMissing;
+    std::unordered_map<std::pair<int,int>, Syllable> panelMissing;
+    std::unordered_map<std::pair<int,int>, Syllable> queryMissing;
 
     int readTXT(string txt_file);
 
@@ -235,52 +242,139 @@ int wFSPBWT<Syllable>::readTXT(string txt_file) {
     iota(array[0].begin(), array[0].end(), 0);
     divergence.resize(n + 1, vector<int>(M, 0));
     u=new int[(long)n*M*T];
-    // 读取基因型数据
-    vector<Syllable> X_(M, 0); // 临时存储当前音节
-    for (int K = 0, k = 0; K < N; K++) {
-        k = K / B;
+
+    filter.resize(n);
+    PanelSyllableHavingMissing.resize(M,vector<bool>(n));
+
+
+// Step 5: 处理SITE行
+    in.clear();
+    in.seekg(0);
+    std::vector<Syllable> X_(M, 0);
+
+    int K = 0, k = 0;
+    while (std::getline(in, line)) {
+        if (line.rfind("SITE:", 0) != 0) {
+            continue;
+        }
+
+        if (K >= N) {
+            std::cerr << "SITE行数过多: K=" << K << ", 预期N=" << N << std::endl;
+            return 10;
+        }
+        Syllable filterTemp=0;
+        vector<Syllable> missingTemp;
+        missingTemp.resize(M);
+        // 处理音节边界
         if (K % B == 0 && K != 0) {
+            k = K / B - 1; // 上一个音节的索引
+            if (k >= n) {
+                std::cerr << "无效的k: " << k << ", n=" << n << std::endl;
+                return 11;
+            }
+            filter[k]=filterTemp;
             for (int i = 0; i < M; i++) {
-                X[i][k - 1] = X_[i];
+                X[i][k] = X_[i]; // 保存压缩音节
+
             }
-            memset(&X_[0], 0, M * sizeof(Syllable));
-        }
-        getline(in, line);
-        if (line.empty())
-            return 2;
-        // 解析 SITE 行（格式：SITE: idx pos val genotype）
-        size_t last_tab = line.rfind('\t');
-        if (last_tab == string::npos)
-            return 2;
-        string genotype_str = line.substr(last_tab + 1);
-        if (genotype_str.size() != M)
-            return 2;
-        // 存储物理位置（从第二列提取）
-        size_t first_tab = line.find('\t');
-        size_t second_tab = line.find('\t', first_tab + 1);
+            if (filterTemp!=0)
+            {
+                //having missing
+                for (int i = 0; i < M; i++)
+                {
+                    if (PanelSyllableHavingMissing[i][k]==true)
+                    {
+                        // add missing <i,k> , missingTemp[i]
 
-        // 解析基因型（0/1）
-        for (int i = 0; i < M; i++) {
-            X_[i] = (X_[i] << 1) | (genotype_str[i] == '1');
+                    }
+                }
+            }
+            X_.assign(M, 0); // 重置X_
+            filterTemp=0;
         }
 
+        std::stringstream ss(line);
+        std::string token;
+        std::getline(ss, token, '\t'); // Skip "SITE:"
+        std::getline(ss, token, '\t'); // Skip index
+        std::getline(ss, token, '\t'); // Skip physLoc
+        std::getline(ss, token, '\t'); // Skip other column
+        std::getline(ss, token, '\t'); // Get haplotype data
+
+        if (token.size() != M) {
+            std::cerr << "单倍型数据长度不匹配: 预期 " << M << ", 实际 " << token.size() << ", K=" << K << std::endl;
+            return 6;
+        }
+
+        int index = 0;
+        for (char c : token) {
+            if (index >= M) {
+                std::cerr << "索引越界: index=" << index << ", M=" << M << ", K=" << K << std::endl;
+                return 9;
+            }
+            if (K % B >= B) {
+                std::cerr << "无效的K % B: " << K % B << ", K=" << K << std::endl;
+                return 12;
+            }
+            if (c == '0') {
+                X_[index] = X_[index] << 1;
+            } else if (c == '1') {
+                X_[index] = (X_[index] << 1) | 1;
+            } else if (c == '.') {
+                X_[index] = (X_[index] << 1) ; // 缺失值位点记为0
+                filter[k]=filter[k]|(one << ( B - K%B) );
+
+                syllableMultis[index].push_back(std::make_pair(static_cast<uint8_t>(K % B), static_cast<uint8_t>(c - '0')));
+            } else if (c == '.') {
+                std::cerr << "无效字符 '.' 在 K=" << K << ", index=" << index << std::endl;
+                return 7;
+            } else {
+                std::cerr << "无效字符 '" << c << "' 在 K=" << K << ", index=" << index << std::endl;
+                return 8;
+            }
+            panelCount[c - '0'] += 1;
+            index++;
+        }
+        if (index != M) {
+            std::cerr << "处理了 " << index << " 个单倍型，预期 " << M << ", K=" << K << std::endl;
+            return 9;
+        }
+
+        // 处理最后一个音节
         if (K == N - 1) {
-            // if last site, pad last syllable with 0s
-
-            if (K % B != 0) {
-                int pad2 = n * B - N;
-                for (int i = 0; i < M; i++) {
-                    X_[i] <<= pad2;
-                }
-                for (int i = 0; i < M; i++) {
-                    X[i][k] = X_[i];
+            k = K / B; // 最后一个音节的索引
+            int pad2 = n * B - N; // 填充位点数
+            if (pad2 < 0) {
+                std::cerr << "无效的填充长度: pad2=" << pad2 << std::endl;
+                return 14;
+            }
+            for (int i = 0; i < M; i++) {
+                X_[i] <<= pad2; // 填充0
+                X[i][k] = X_[i];
+                if (!syllableMultis[i].empty()) {
+                    unsigned int start = panelMultiValues.size();
+                    for (const auto& p : syllableMultis[i]) {
+                        panelMultiValues.push_back(p);
+                    }
+                    panelMultiInfo[i][k] = std::make_pair(start, static_cast<uint8_t>(syllableMultis[i].size()));
+                    syllableMultis[i].clear();
+                } else {
+                    panelMultiInfo[i][k] = std::make_pair(-1, 0);
                 }
             }
         }
+        K++;
     }
-    in.close();
+
+    if (K != N) {
+        std::cerr << "处理了 " << K << " 个位点，预期 " << N << std::endl;
+        return 10;
+    }
+
     end = clock();
     readPanelTime = ((double)(end - start)) / CLOCKS_PER_SEC;
+    std::cerr << "readPanelTime = " << readPanelTime << " 秒, 多字符位点数 = " << panelMultiValues.size() << std::endl;
+
     return 0;
 }
 
