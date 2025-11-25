@@ -77,10 +77,10 @@ struct wFSPBWT {
     vector<string> qIDs;
 
     vector<Syllable> filter;
-    vector<vector<bool>> PanelSyllableHavingMissing;
-    vector<vector<bool>> QuerySyllableHavingMissing;
-    std::unordered_map<std::pair<int,int>, Syllable> panelMissing;
-    std::unordered_map<std::pair<int,int>, Syllable> queryMissing;
+    vector<vector<bool>> panelSyllableHavingMissing;
+    vector<vector<bool>> querySyllableHavingMissing;
+    std::unordered_map<std::pair<int,int>, Syllable> panelMissingData;
+    std::unordered_map<std::pair<int,int>, Syllable> queryMissingData;
 
     int readTXT(string txt_file);
 
@@ -255,13 +255,18 @@ int wFSPBWT<Syllable>::readTXT(string txt_file) {
     u=new int[(long)n*M*T];
 
     filter.resize(n);
-    PanelSyllableHavingMissing.resize(M,vector<bool>(n));
+    panelSyllableHavingMissing.resize(M,vector<bool>(n));
 
 
 // Step 5: 处理SITE行
     in.clear();
     in.seekg(0);
     std::vector<Syllable> X_(M, 0);
+
+    Syllable filterTemp=0;
+    vector<Syllable> missingTemp;
+    missingTemp.resize(M);
+    Syllable one=1;
 
     int K = 0, k = 0;
     while (std::getline(in, line)) {
@@ -273,10 +278,7 @@ int wFSPBWT<Syllable>::readTXT(string txt_file) {
             std::cerr << "SITE行数过多: K=" << K << ", 预期N=" << N << std::endl;
             return 10;
         }
-        Syllable filterTemp=0;
-        vector<Syllable> missingTemp;
-        missingTemp.resize(M);
-        Syllable one=1;
+
         // 处理音节边界
         if (K % B == 0 && K != 0) {
             k = K / B - 1; // 上一个音节的索引
@@ -286,7 +288,7 @@ int wFSPBWT<Syllable>::readTXT(string txt_file) {
             }
             filter[k]=filterTemp;
             for (int i = 0; i < M; i++) {
-                X[i][k] = X_[i]; // 保存压缩音节
+                X[i][k] = X_[i];// 保存压缩音节
 
             }
             if (filterTemp!=0)
@@ -294,10 +296,10 @@ int wFSPBWT<Syllable>::readTXT(string txt_file) {
                 //having missing
                 for (int i = 0; i < M; i++)
                 {
-                    if (PanelSyllableHavingMissing[i][k]==true)
+                    if (panelSyllableHavingMissing[i][k]==true)
                     {
                             // add missing <i,k> , missingTemp[i]
-                        panelMissing[{i, k}] = missingTemp[i];
+                        panelMissingData[{i, k}] = missingTemp[i];
                     }
                 }
             }
@@ -323,7 +325,7 @@ int wFSPBWT<Syllable>::readTXT(string txt_file) {
         for (char c : token) {
             if (index >= M) {
                 std::cerr << "索引越界: index=" << index << ", M=" << M << ", K=" << K << std::endl;
-                return 9;
+                return 89;
             }
             if (K % B >= B) {
                 std::cerr << "无效的K % B: " << K % B << ", K=" << K << std::endl;
@@ -333,10 +335,21 @@ int wFSPBWT<Syllable>::readTXT(string txt_file) {
                 X_[index] = X_[index] << 1;
             } else if (c == '1') {
                 X_[index] = (X_[index] << 1) | 1;
-            } else if (c == '.') {
+            } else if (c == '.')
+            {
                 X_[index] = (X_[index] << 1)|  1 ; // 缺失值位点记为1
                 missingTemp[index]=missingTemp[index]|(one << ( B-1 - K%B) );
-                PanelSyllableHavingMissing[index][K/B]=true;
+                panelSyllableHavingMissing[index][K/B]=true;
+                filterTemp=filterTemp|(one<<( B-1 - K%B) );
+                // ---- 调试输出 ----
+                std::cerr << "[DEBUG] "
+                          << "i=" << index                // 样本编号
+                          << "  k=" << K/B              // 音节编号
+                          << "  K=" << K                  // 全局位点编号
+                          << "  K%B=" << K % B
+                          << "  bit-pos=" << (B - 1 - K % B)
+                          << std::endl;
+            }
             index++;
         }
         if (index != M) {
@@ -355,13 +368,12 @@ int wFSPBWT<Syllable>::readTXT(string txt_file) {
             }
             for (int i = 0; i < M; i++) {
                 X_[i] <<= pad2; // 填充0
-                X[i][k] = X_[i];
-                if (PanelSyllableHavingMissing[i][k]==true) {
-                    panelMissing[{i, k}] = (missingTemp[i] << pad2);
+                X[i][k] = X_[i] ;
+                filter[k]=filterTemp;
+                if (panelSyllableHavingMissing[i][k]==true) {
+                    panelMissingData[{i, k}] = (missingTemp[i] << pad2);
                 }
             }
-        }
-
         }
         K++;
     }
