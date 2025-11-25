@@ -82,7 +82,7 @@ struct wFSPBWT {
     std::unordered_map<std::pair<int,int>, Syllable> panelMissingData;
     std::unordered_map<std::pair<int,int>, Syllable> queryMissingData;
 
-    int readTXT(string txt_file);
+    int readPanel(string txt_file);
 
     int readQuery(string query_file);
 
@@ -117,89 +117,184 @@ struct wFSPBWT {
 
 
 
-
 template<class Syllable>
 
 int wFSPBWT<Syllable>::readQuery(string query_file) {
     clock_t start, end;
     start = clock();
 
-    ifstream in(query_file);
+ ifstream in(query_file);
     if (in.fail())
         return 1;
+
+    // 跳过前两行（COMMAND 和 SEED）
     string line;
-    //line.reserve(10000);
-    while (getline(in, line)) {
-        if (line.size() < 2u)
+
+    for (int i = 0; i < 2; i++) {
+        if (!getline(in, line))
             return 2;
-        if (line[0] != '#' || line[1] != '#')
-            break;
     }
-    stringstream ss(line);
-    Q = -9;
-    while (getline(ss, line, '\t'))
-        Q++;
+
+    // 第一遍：计算样本数 M 和位点数 N
+    getline(in, line); // 读取第一个 SITE 行
+    size_t last_tab = line.rfind('\t');
+    if (last_tab == string::npos)
+        return 2;
+    string genotype_str = line.substr(last_tab + 1);
+    Q = genotype_str.size(); // 样本数（单倍型数量）
     if (Q < 1)
         return 2;
-    Q <<= 1;
-    qIDs.resize(Q);
+    N = 1;
+    int count=0;
+    while (getline(in, line))
+        count++;
+    if (count!=N)
+    {
+        return 4;
+    }
+
     in.clear(), in.seekg(0);
-    while (getline(in, line)) {
-        if (line[0] != '#' || line[1] != '#')
-            break;
-    }
-    ss = stringstream(line);
-    for (int _ = 0; _ < 9; _++)
-        getline(ss, line, '\t');
-    for (int i = 0; i < Q; i += 2) {
-        getline(ss, qIDs[i], '\t');
-        qIDs[i + 1] = qIDs[i] + "-1";
-        qIDs[i] += "-0";
-    }
+
+    // 跳过前两行（COMMAND 和 SEED）
+    for (int i = 0; i < 2; i++)
+        getline(in, line);
+
+    // 初始化数据结构
+    qIDs.resize(Q);
+    for (int i = 0; i < Q; i++)
+        IDs[i] = "query" + to_string(i); // 虚拟样本名
+
     Z.resize(Q, vector<Syllable>(n));
     Z.shrink_to_fit();
-    vector<Syllable> Z_(Q); //Z in syllable k
 
-    for (int K = 0, k = 0; K < N; K++) //for each site
-    {
-        k = K / B;
+
+    //filter.resize(n);
+    querySyllableHavingMissing.resize(Q,vector<bool>(n));
+
+
+// Step 5: 处理SITE行
+    in.clear();
+    in.seekg(0);
+    std::vector<Syllable> Z_(Q, 0);
+
+    Syllable filterTemp=0;
+    vector<Syllable> missingTemp;
+    missingTemp.resize(Q);
+    Syllable one=1;
+
+    int K = 0, k = 0;
+    while (std::getline(in, line)) {
+        if (line.rfind("SITE:", 0) != 0) {
+            continue;
+        }
+
+        if (K >= N) {
+            std::cerr << "SITE行数过多: K=" << K << ", 预期N=" << N << std::endl;
+            return 10;
+        }
+
+        // 处理音节边界
         if (K % B == 0 && K != 0) {
-            for (int i = 0; i < Q; i++) {
-                Z[i][k - 1] = Z_[i];
+            k = K / B - 1; // 上一个音节的索引
+            if (k >= n) {
+                std::cerr << "无效的k: " << k << ", n=" << n << std::endl;
+                return 11;
             }
-            memset(&Z_[0], 0, Q * sizeof(Syllable));
+            filter[k]=filterTemp;
+            for (int i = 0; i < M; i++) {
+                Z[i][k] = Z_[i];// 保存压缩音节
+
+            }
+            if (filterTemp!=0)
+            {
+                //having missing
+                for (int i = 0; i < Q; i++)
+                {
+                    if (querySyllableHavingMissing[i][k]==true)
+                    {
+                            // add missing <i,k> , missingTemp[i]
+                        queryMissingData[{i, k}] = missingTemp[i];
+                    }
+                }
+            }
+            Z_.assign(Q, 0); // 重置X_
+            missingTemp.assign(Q,0);
+            filterTemp=0;
         }
 
-        getline(in, line);
-        ss = stringstream(line);
-        for (int i = 0; i < 9; i++) {
-            // get site's physical location
-            getline(ss, line, '\t');
+        std::stringstream ss(line);
+        std::string token;
+        std::getline(ss, token, '\t'); // Skip "SITE:"
+        std::getline(ss, token, '\t'); // Skip index
+        std::getline(ss, token, '\t'); // Skip physLoc
+        std::getline(ss, token, '\t'); // Skip other column
+        std::getline(ss, token, '\t'); // Get haplotype data
+
+        if (token.size() != Q) {
+            std::cerr << "单倍型数据长度不匹配: 预期 " << Q << ", 实际 " << token.size() << ", K=" << K << std::endl;
+            return 6;
         }
+
         int index = 0;
-        while (getline(ss, line, '\t')) //for each hapolotype
-        {
-            if (index == Q || line.size() < 3u)
-                return 2;
-            Z_[index] = (Z_[index] << 1) | (line[0] != '0'), index++;
-            Z_[index] = (Z_[index] << 1) | (line[2] != '0'), index++;
+        for (char c : token) {
+            if (index >= Q) {
+                std::cerr << "索引越界: index=" << index << ", Q=" << Q << ", K=" << K << std::endl;
+                return 89;
+            }
+            if (K % B >= B) {
+                std::cerr << "无效的K % B: " << K % B << ", K=" << K << std::endl;
+                return 12;
+            }
+            if (c == '0') {
+                Z_[index] = Z_[index] << 1;
+            } else if (c == '1') {
+                Z_[index] = (Z_[index] << 1) | 1;
+            } else if (c == '.')
+            {
+                Z_[index] = (Z_[index] << 1)|  1 ; // 缺失值位点记为1
+                missingTemp[index]=missingTemp[index]|(one << ( B-1 - K%B) );
+                querySyllableHavingMissing[index][K/B]=true;
+                filterTemp=filterTemp|(one<<( B-1 - K%B) );
+                // ---- 调试输出 ----
+                std::cerr << "[DEBUG] "
+                          << "i=" << index                // 样本编号
+                          << "  k=" << K/B              // 音节编号
+                          << "  K=" << K                  // 全局位点编号
+                          << "  K%B=" << K % B
+                          << "  bit-pos=" << (B - 1 - K % B)
+                          << std::endl;
+            }
+            index++;
         }
-        if (index != Q)
-            return 2;
+        if (index != Q) {
+            std::cerr << "处理了 " << index << " 个单倍型，预期 " << M << ", K=" << K << std::endl;
+            return 9;
+        }
 
-        if (K == N - 1) {
-            // if last site, pad last syllable with 0s
-
-            if (K % B != 0) {
-                int pad2 = n * B - N;
-                for (int i = 0; i < Q; i++) {
-                    Z_[i] <<= pad2;
-                }
-                for (int i = 0; i < Q; i++) {
-                    Z[i][k] = Z_[i];
+        // 处理最后一个音节
+        if (K == N - 1)
+        {
+            k = K / B; // 最后一个音节的索引
+            int pad2 = n * B - N; // 填充位点数
+            if (pad2 < 0) {
+                std::cerr << "无效的填充长度: pad2=" << pad2 << std::endl;
+                return 14;
+            }
+            for (int i = 0; i < Q; i++) {
+                Z_[i] <<= pad2; // 填充0
+                Z[i][k] = Z_[i] ;
+                //filter[k]=filterTemp;
+                if (querySyllableHavingMissing[i][k]==true) {
+                    queryMissingData[{i, k}] = (missingTemp[i] << pad2);
                 }
             }
         }
+        K++;
+    }
+
+    if (K != N) {
+        std::cerr << "处理了 " << K << " 个位点，预期 " << N << std::endl;
+        return 10;
     }
 
 
@@ -209,8 +304,99 @@ int wFSPBWT<Syllable>::readQuery(string query_file) {
     return 0;
 }
 
+// template<class Syllable>
+//
+// int wFSPBWT<Syllable>::readQuery(string query_file) {
+//     clock_t start, end;
+//     start = clock();
+//
+//     ifstream in(query_file);
+//     if (in.fail())
+//         return 1;
+//     string line;
+//     //line.reserve(10000);
+//     while (getline(in, line)) {
+//         if (line.size() < 2u)
+//             return 2;
+//         if (line[0] != '#' || line[1] != '#')
+//             break;
+//     }
+//     stringstream ss(line);
+//     Q = -9;
+//     while (getline(ss, line, '\t'))
+//         Q++;
+//     if (Q < 1)
+//         return 2;
+//     Q <<= 1;
+//     qIDs.resize(Q);
+//     in.clear(), in.seekg(0);
+//     while (getline(in, line)) {
+//         if (line[0] != '#' || line[1] != '#')
+//             break;
+//     }
+//     ss = stringstream(line);
+//     for (int _ = 0; _ < 9; _++)
+//         getline(ss, line, '\t');
+//     for (int i = 0; i < Q; i += 2) {
+//         getline(ss, qIDs[i], '\t');
+//         qIDs[i + 1] = qIDs[i] + "-1";
+//         qIDs[i] += "-0";
+//     }
+//     Z.resize(Q, vector<Syllable>(n));
+//     Z.shrink_to_fit();
+//     vector<Syllable> Z_(Q); //Z in syllable k
+//
+//     for (int K = 0, k = 0; K < N; K++) //for each site
+//     {
+//         k = K / B;
+//         if (K % B == 0 && K != 0) {
+//             for (int i = 0; i < Q; i++) {
+//                 Z[i][k - 1] = Z_[i];
+//             }
+//             memset(&Z_[0], 0, Q * sizeof(Syllable));
+//         }
+//
+//         getline(in, line);
+//         ss = stringstream(line);
+//         for (int i = 0; i < 9; i++) {
+//             // get site's physical location
+//             getline(ss, line, '\t');
+//         }
+//         int index = 0;
+//         while (getline(ss, line, '\t')) //for each hapolotype
+//         {
+//             if (index == Q || line.size() < 3u)
+//                 return 2;
+//             Z_[index] = (Z_[index] << 1) | (line[0] != '0'), index++;
+//             Z_[index] = (Z_[index] << 1) | (line[2] != '0'), index++;
+//         }
+//         if (index != Q)
+//             return 2;
+//
+//         if (K == N - 1) {
+//             // if last site, pad last syllable with 0s
+//
+//             if (K % B != 0) {
+//                 int pad2 = n * B - N;
+//                 for (int i = 0; i < Q; i++) {
+//                     Z_[i] <<= pad2;
+//                 }
+//                 for (int i = 0; i < Q; i++) {
+//                     Z[i][k] = Z_[i];
+//                 }
+//             }
+//         }
+//     }
+//
+//
+//     end = clock();
+//     readQueryTime = ((double) (end - start)) / CLOCKS_PER_SEC;
+//
+//     return 0;
+// }
+
 template<class Syllable>
-int wFSPBWT<Syllable>::readTXT(string txt_file) {
+int wFSPBWT<Syllable>::readPanel(string txt_file) {
     clock_t start, end;
     start = clock();
     ifstream in(txt_file);

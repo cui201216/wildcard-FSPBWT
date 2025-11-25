@@ -184,7 +184,7 @@ int main(int argc, char *argv[])
 		CRY.T = pow(2, F); // 计算T的值，即2的F次方
 		CRY.minSiteL = B * 2 - 1;
 		// 构造函数用于初始化B、F、T和minSiteL的值
-		int a = CRY.readTXT(panelFile);
+		int a = CRY.readPanel(panelFile);
 		// int a = CRY.readTXT("sites.txt");
 			std::cout << "read panel file done: " << a << endl;
 			//1846144
@@ -216,7 +216,7 @@ int main(int argc, char *argv[])
 		CRY.T = pow(2, F); // 计算T的值，即2的F次方
 		CRY.minSiteL = B * 2 - 1;
 		// 构造函数用于初始化B、F、T和minSiteL的值
-		int a = CRY.readTXT(panelFile);
+		int a = CRY.readPanel(panelFile);
 
 			std::cout << "read panel file done: " << a << endl;
 		int b=CRY.makeFuzzyPanel();
