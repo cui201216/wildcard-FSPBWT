@@ -459,10 +459,10 @@ int wFSPBWT<Syllable>::makeFuzzyPanel()
 
     //get array[][] divergence[][] u[][][]
     //u.resize(n, vector<vector<int>>(M, vector<int>(T)));
-    int a_count[T] = {0};
-    int d_count[T] = {0};
-    int a[T][M];
-    int d[T][M];
+    std::vector<int>  a_count(T, 0);
+    std::vector<int>  d_count(T, 0);
+    std::vector<std::vector<int>> a(T, std::vector<int>(M));
+    std::vector<std::vector<int>> d(T, std::vector<int>(M));
     //vector<int> a[T]; // make array[][]  his size for u[][]
     //vector<int> d[T]; //  make divergence
     //vector<int> p(T);	//  make divergence
