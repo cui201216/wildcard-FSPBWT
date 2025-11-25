@@ -209,36 +209,36 @@ int main(int argc, char *argv[])
 			}
 			return 0;
 	}
-// 	else if (B==128) {
-// 		wFSPBWT<unsigned __uint128_t> CRY;
-// 		CRY.F=F;
-// 		CRY.B = B;
-// 		CRY.T = pow(2, F); // 计算T的值，即2的F次方
-// 		CRY.minSiteL = B * 2 - 1;
-// 		// 构造函数用于初始化B、F、T和minSiteL的值
-// 		int a = CRY.readTXT(panelFile);
-//
-// 			std::cout << "read panel file done: " << a << endl;
-// 		int b=CRY.makeFuzzyPanel();
-// 			std::cout << "make fuzzy panel  done: " << b << endl;
-//
-// 			if (mode == "out") {
-// 				int c = CRY.readQuery(queryFile);
-// 				cout << "read query done: " << c << endl;
-// 				int d = CRY.outPanelLongMatchQuery(L, outputFile, even);
-// 				cout << "out-panel query done: " << d << endl;
-// 				CRY.outputInformationToFile(informationFile, "out");
-// 			}
-// 			else if (mode == "in") {
-// 				int c = CRY.inPanelLongMatchQuery(L, outputFile);
-// 				std::cout << "in-panel query done: " << c << endl;
-// 				CRY.outputInformationToFile(informationFile, "in");
-// 			}
-// 			return 0;
-//
-// 	}
-// 	else {
-// 		std::cout << "wrong Syllable size! s must be 64 / 128" << endl;
-// 	}
-// 	return 0;
+	else if (B==128) {
+		wFSPBWT<__uint128_t> CRY;
+		CRY.F=F;
+		CRY.B = B;
+		CRY.T = pow(2, F); // 计算T的值，即2的F次方
+		CRY.minSiteL = B * 2 - 1;
+		// 构造函数用于初始化B、F、T和minSiteL的值
+		int a = CRY.readTXT(panelFile);
+
+			std::cout << "read panel file done: " << a << endl;
+		int b=CRY.makeFuzzyPanel();
+			std::cout << "make fuzzy panel  done: " << b << endl;
+
+			if (mode == "out") {
+				int c = CRY.readQuery(queryFile);
+				cout << "read query done: " << c << endl;
+				int d = CRY.outPanelLongMatchQuery(L, outputFile, even);
+				cout << "out-panel query done: " << d << endl;
+				CRY.outputInformationToFile(informationFile, "out");
+			}
+			else if (mode == "in") {
+				int c = CRY.inPanelLongMatchQuery(L, outputFile);
+				std::cout << "in-panel query done: " << c << endl;
+				CRY.outputInformationToFile(informationFile, "in");
+			}
+			return 0;
+
+	}
+	else {
+		std::cout << "wrong Syllable size! s must be 64 / 128" << endl;
+	}
+	return 0;
  }
