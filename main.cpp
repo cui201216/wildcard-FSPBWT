@@ -23,8 +23,8 @@ void printHelp()
 
 int main(int argc, char *argv[])
 {
-	int B = 64, F = 2, L = 500;
-	string panelFile = "panel.vcf";
+	int B = 64, F = 1, L = 200;
+	string panelFile = "site.txt";
 	string outputFile = "";
 	string mode = "in";
 	string queryFile="query.vcf";
@@ -37,7 +37,7 @@ int main(int argc, char *argv[])
 	if (argc == 1)
 	{
 		printHelp();
-		return 0;
+		//return 0;
 	}
 
 	for (int i = 1; i < argc; i++)

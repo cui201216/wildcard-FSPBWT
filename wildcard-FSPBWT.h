@@ -28,6 +28,17 @@
 #include"tools.h"
 #define FF 4
 using namespace std;
+
+namespace std {
+    template<>
+    struct hash<std::pair<int,int>> {
+        size_t operator()(const std::pair<int,int>& p) const noexcept {
+            size_t h1 = hash<int>{}(p.first);
+            size_t h2 = hash<int>{}(p.second);
+            return h1 ^ (h2 + 0x9e3779b9 + (h1 << 6) + (h1 >> 2));
+        }
+    };
+}
 template<typename Syllable>
 struct wFSPBWT {
     int B;
@@ -265,6 +276,7 @@ int wFSPBWT<Syllable>::readTXT(string txt_file) {
         Syllable filterTemp=0;
         vector<Syllable> missingTemp;
         missingTemp.resize(M);
+        Syllable one=1;
         // 处理音节边界
         if (K % B == 0 && K != 0) {
             k = K / B - 1; // 上一个音节的索引
@@ -284,12 +296,13 @@ int wFSPBWT<Syllable>::readTXT(string txt_file) {
                 {
                     if (PanelSyllableHavingMissing[i][k]==true)
                     {
-                        // add missing <i,k> , missingTemp[i]
-
+                            // add missing <i,k> , missingTemp[i]
+                        panelMissing[{i, k}] = missingTemp[i];
                     }
                 }
             }
             X_.assign(M, 0); // 重置X_
+            missingTemp.assign(M,0);
             filterTemp=0;
         }
 
@@ -321,18 +334,9 @@ int wFSPBWT<Syllable>::readTXT(string txt_file) {
             } else if (c == '1') {
                 X_[index] = (X_[index] << 1) | 1;
             } else if (c == '.') {
-                X_[index] = (X_[index] << 1) ; // 缺失值位点记为0
-                filter[k]=filter[k]|(one << ( B - K%B) );
-
-                syllableMultis[index].push_back(std::make_pair(static_cast<uint8_t>(K % B), static_cast<uint8_t>(c - '0')));
-            } else if (c == '.') {
-                std::cerr << "无效字符 '.' 在 K=" << K << ", index=" << index << std::endl;
-                return 7;
-            } else {
-                std::cerr << "无效字符 '" << c << "' 在 K=" << K << ", index=" << index << std::endl;
-                return 8;
-            }
-            panelCount[c - '0'] += 1;
+                X_[index] = (X_[index] << 1)|  1 ; // 缺失值位点记为1
+                missingTemp[index]=missingTemp[index]|(one << ( B-1 - K%B) );
+                PanelSyllableHavingMissing[index][K/B]=true;
             index++;
         }
         if (index != M) {
@@ -341,7 +345,8 @@ int wFSPBWT<Syllable>::readTXT(string txt_file) {
         }
 
         // 处理最后一个音节
-        if (K == N - 1) {
+        if (K == N - 1)
+        {
             k = K / B; // 最后一个音节的索引
             int pad2 = n * B - N; // 填充位点数
             if (pad2 < 0) {
@@ -351,17 +356,12 @@ int wFSPBWT<Syllable>::readTXT(string txt_file) {
             for (int i = 0; i < M; i++) {
                 X_[i] <<= pad2; // 填充0
                 X[i][k] = X_[i];
-                if (!syllableMultis[i].empty()) {
-                    unsigned int start = panelMultiValues.size();
-                    for (const auto& p : syllableMultis[i]) {
-                        panelMultiValues.push_back(p);
-                    }
-                    panelMultiInfo[i][k] = std::make_pair(start, static_cast<uint8_t>(syllableMultis[i].size()));
-                    syllableMultis[i].clear();
-                } else {
-                    panelMultiInfo[i][k] = std::make_pair(-1, 0);
+                if (PanelSyllableHavingMissing[i][k]==true) {
+                    panelMissing[{i, k}] = (missingTemp[i] << pad2);
                 }
             }
+        }
+
         }
         K++;
     }
@@ -373,7 +373,7 @@ int wFSPBWT<Syllable>::readTXT(string txt_file) {
 
     end = clock();
     readPanelTime = ((double)(end - start)) / CLOCKS_PER_SEC;
-    std::cerr << "readPanelTime = " << readPanelTime << " 秒, 多字符位点数 = " << panelMultiValues.size() << std::endl;
+    std::cerr << "readPanelTime = " << readPanelTime << " 秒, 多字符位点数 = " <<  std::endl;
 
     return 0;
 }
