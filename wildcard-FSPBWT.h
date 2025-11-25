@@ -988,9 +988,9 @@ int wFSPBWT<Syllable>::outPanelLongMatchQuery(int L, string outPanelOutput_file,
             for (int i = 0; i < Q; i++) {
                 int num = 0;
                 if (B == 64) {
-                    num = __builtin_popcountll(Z[i][k]);
+                    num = __builtin_popcountll(  (Z[i][k] | filter[k]) );
                 } else if (B == 128) {
-                    num = countSetBits128(Z[i][k]);
+                    num = countSetBits128( (Z[i][k] | filter[k]) );
                 }
                 uint32_t temp = num % T;
                 fuzzyZ[i][index] = (fuzzyZ[i][index] << FF) | temp;
