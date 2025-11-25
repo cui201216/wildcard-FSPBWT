@@ -197,7 +197,7 @@ int main(int argc, char *argv[])
 				cout << "read query done: " << c << endl;
 
 				// 2146176
-				int d = CRY.outPanelLongMatchQuery(L, outputFile, even);
+				int d = CRY.outPanelLongMatchQuery(L, outputFile);
 				cout << "out-panel query done: " << d << endl;
 				// 2146688
 				CRY.outputInformationToFile(informationFile, "out");
@@ -225,7 +225,7 @@ int main(int argc, char *argv[])
 			if (mode == "out") {
 				int c = CRY.readQuery(queryFile);
 				cout << "read query done: " << c << endl;
-				int d = CRY.outPanelLongMatchQuery(L, outputFile, even);
+				int d = CRY.outPanelLongMatchQuery(L, outputFile);
 				cout << "out-panel query done: " << d << endl;
 				CRY.outputInformationToFile(informationFile, "out");
 			}
