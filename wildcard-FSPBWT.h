@@ -96,6 +96,8 @@ struct wFSPBWT {
     void inPanelRefine(int L, int s_idx, int e_idx, int index_a, int index_b,
                        ofstream &out);
 
+    bool inPanelEqualWithMissing(int a,int b,int k);
+
     void inPanelIdentification(int L, int s_idx, int e_idx, int index_a,
                                int index_b, ofstream &out);
 
@@ -1154,10 +1156,27 @@ void wFSPBWT<Syllable>::inPanelRefine(int L, int s_idx, int e_idx, int index_a, 
         start = 0;
     } else {
         unsigned long tz;
+        Syllable tempA=X[index_a][s_idx];
+        Syllable  tempB=X[index_b][s_idx];
+        std::pair<int,int> keyA{index_a, s_idx};
+        std::pair<int,int> keyB{index_b, s_idx};
+        auto it = panelMissingData.find(keyA);
+        if (it != panelMissingData.end()) {
+            Syllable missing = it->second;
+            tempA=tempA | missing;
+            tempB=tempB | missing;
+        }
+        it = panelMissingData.find(keyB);
+        if (it != panelMissingData.end()) {
+            Syllable missing = it->second;
+            tempA=tempA | missing;
+            tempB=tempB | missing;
+        }
+
         if (B == 64) {
-            tz = __builtin_ctzll(X[index_a][s_idx] ^ X[index_b][s_idx]);
+            tz = __builtin_ctzll( tempA ^ tempB);
         } else if (B == 128) {
-            tz = ctz128_uint128(X[index_a][s_idx] ^ X[index_b][s_idx]);
+            tz = ctz128_uint128( tempA ^ tempB);
         }
         //start = (s_idx + 1) * B - tz + 1;
         start = (s_idx + 1) * B - tz;
@@ -1166,10 +1185,28 @@ void wFSPBWT<Syllable>::inPanelRefine(int L, int s_idx, int e_idx, int index_a, 
         end = N;
     } else {
         unsigned long tz = 0;
+
+        Syllable tempA=X[index_a][e_idx];
+        Syllable  tempB=X[index_b][e_idx];
+        std::pair<int,int> keyA{index_a, e_idx};
+        std::pair<int,int> keyB{index_b, e_idx};
+        auto it = panelMissingData.find(keyA);
+        if (it != panelMissingData.end()) {
+            Syllable missing = it->second;
+            tempA=tempA | missing;
+            tempB=tempB | missing;
+        }
+        it = panelMissingData.find(keyB);
+        if (it != panelMissingData.end()) {
+            Syllable missing = it->second;
+            tempA=tempA | missing;
+            tempB=tempB | missing;
+        }
+
         if (B == 64) {
-            tz = __builtin_clzll(X[index_a][e_idx] ^ X[index_b][e_idx]);
+            tz = __builtin_clzll(tempA ^ tempB);
         } else if (B == 128) {
-            tz = clz128_uint128(X[index_a][e_idx] ^ X[index_b][e_idx]);
+            tz = clz128_uint128(tempA ^ tempB);
         }
         end = e_idx * B + tz;
     }
@@ -1184,6 +1221,28 @@ void wFSPBWT<Syllable>::inPanelRefine(int L, int s_idx, int e_idx, int index_a, 
 }
 
 template<class Syllable>
+bool wFSPBWT<Syllable>::inPanelEqualWithMissing(int a,int b,int k)
+{
+    Syllable tempA=X[a][k];
+    Syllable tempB=X[b][k];
+    std::pair<int,int> keyA{a, k};
+    std::pair<int,int> keyB{b, k};
+    auto it = panelMissingData.find(keyA);
+    if (it != panelMissingData.end()) {
+        Syllable missing = it->second;
+        tempA=tempA | missing;
+        tempB=tempB | missing;
+    }
+    it = panelMissingData.find(keyB);
+    if (it != panelMissingData.end()) {
+        Syllable missing = it->second;
+        tempA=tempA | missing;
+        tempB=tempB | missing;
+    }
+    return tempA==tempB;
+}
+
+template<class Syllable>
 void wFSPBWT<Syllable>::inPanelIdentification(int L, int s_idx, int e_idx, int index_a,
                                                 int index_b, ofstream &out) {
     alternativeSyllableNum+=(e_idx - s_idx + 1);
@@ -1193,7 +1252,7 @@ void wFSPBWT<Syllable>::inPanelIdentification(int L, int s_idx, int e_idx, int i
     int head = s_idx + 1, tail;
     while (head < e_idx) {
         tail = head;
-        while (tail < e_idx && X[index_a][tail] == X[index_b][tail]) {
+        while (tail < e_idx &&  inPanelEqualWithMissing(index_a,index_b,tail)) {
             tail++;
         }
         if (tail - head >= l) {
@@ -1201,7 +1260,7 @@ void wFSPBWT<Syllable>::inPanelIdentification(int L, int s_idx, int e_idx, int i
 
         }
         head = tail + 1;
-        while (head < e_idx && X[index_a][head] != X[index_b][head]) {
+        while (head < e_idx && !inPanelEqualWithMissing(index_a,index_b,tail)) {
             head++;
         }
     }

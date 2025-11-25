@@ -188,25 +188,25 @@ int main(int argc, char *argv[])
 		// int a = CRY.readTXT("sites.txt");
 			std::cout << "read panel file done: " << a << endl;
 			//1846144
-		// int b=CRY.makeFuzzyPanel();
-		//
-		// 	//2139264
-		// 	std::cout << "make fuzzy panel  done: " << b << endl;
-		// 	if (mode == "out") {
-		// 		int c = CRY.readQuery(queryFile);
-		// 		cout << "read query done: " << c << endl;
-		//
-		// 		// 2146176
-		// 		int d = CRY.outPanelLongMatchQuery(L, outputFile, even);
-		// 		cout << "out-panel query done: " << d << endl;
-		// 		// 2146688
-		// 		CRY.outputInformationToFile(informationFile, "out");
-		// 	}
-		// 	else if (mode == "in") {
-		// 		int c = CRY.inPanelLongMatchQuery(L, outputFile);
-		// 		std::cout << "in-panel query done: " << c << endl;
-		// 		CRY.outputInformationToFile(informationFile, "in");
-		// 	}
+		int b=CRY.makeFuzzyPanel();
+
+			//2139264
+			std::cout << "make fuzzy panel  done: " << b << endl;
+			if (mode == "out") {
+				int c = CRY.readQuery(queryFile);
+				cout << "read query done: " << c << endl;
+
+				// 2146176
+				int d = CRY.outPanelLongMatchQuery(L, outputFile, even);
+				cout << "out-panel query done: " << d << endl;
+				// 2146688
+				CRY.outputInformationToFile(informationFile, "out");
+			}
+			else if (mode == "in") {
+				int c = CRY.inPanelLongMatchQuery(L, outputFile);
+				std::cout << "in-panel query done: " << c << endl;
+				CRY.outputInformationToFile(informationFile, "in");
+			}
 			return 0;
 	}
 // 	else if (B==128) {
