@@ -256,14 +256,14 @@ int wFSPBWT<Syllable>::readQuery(string query_file) {
                 missingTemp[index]=missingTemp[index]|(one << ( B-1 - K%B) );
                 querySyllableHavingMissing[index][K/B]=true;
                 filterTemp=filterTemp|(one<<( B-1 - K%B) );
-                // ---- 调试输出 ----
-                std::cerr << "[DEBUG] "
-                          << "i=" << index                // 样本编号
-                          << "  k=" << K/B              // 音节编号
-                          << "  K=" << K                  // 全局位点编号
-                          << "  K%B=" << K % B
-                          << "  bit-pos=" << (B - 1 - K % B)
-                          << std::endl;
+                // // ---- 调试输出 ----
+                // std::cerr << "[DEBUG] "
+                //           << "i=" << index                // 样本编号
+                //           << "  k=" << K/B              // 音节编号
+                //           << "  K=" << K                  // 全局位点编号
+                //           << "  K%B=" << K % B
+                //           << "  bit-pos=" << (B - 1 - K % B)
+                //           << std::endl;
             }
             index++;
         }
