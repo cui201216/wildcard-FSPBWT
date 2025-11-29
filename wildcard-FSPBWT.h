@@ -145,7 +145,6 @@ int wFSPBWT<Syllable>::readQuery(string query_file) {
     Q = genotype_str.size(); // 样本数（单倍型数量）
     if (Q < 1)
         return 2;
-    N = 1;
     int count=0;
     while (getline(in, line))
         count++;
@@ -422,8 +421,11 @@ int wFSPBWT<Syllable>::readPanel(string txt_file) {
     if (M < 1)
         return 2;
     N = 1;
-    while (getline(in, line))
-        N++;
+    while (getline(in, line)) {
+        if (line.rfind("SITE:", 0) == 0) {
+            N++;
+        }
+    }
     in.clear(), in.seekg(0);
 
     // 跳过前两行（COMMAND 和 SEED）
@@ -530,14 +532,14 @@ int wFSPBWT<Syllable>::readPanel(string txt_file) {
                 missingTemp[index]=missingTemp[index]|(one << ( B-1 - K%B) );
                 panelSyllableHavingMissing[index][K/B]=true;
                 filterTemp=filterTemp|(one<<( B-1 - K%B) );
-                // ---- 调试输出 ----
-                std::cerr << "[DEBUG] "
-                          << "i=" << index                // 样本编号
-                          << "  k=" << K/B              // 音节编号
-                          << "  K=" << K                  // 全局位点编号
-                          << "  K%B=" << K % B
-                          << "  bit-pos=" << (B - 1 - K % B)
-                          << std::endl;
+                // // ---- 调试输出 ----
+                // std::cerr << "[DEBUG] "
+                //           << "i=" << index                // 样本编号
+                //           << "  k=" << K/B              // 音节编号
+                //           << "  K=" << K                  // 全局位点编号
+                //           << "  K%B=" << K % B
+                //           << "  bit-pos=" << (B - 1 - K % B)
+                //           << std::endl;
             }
             index++;
         }
