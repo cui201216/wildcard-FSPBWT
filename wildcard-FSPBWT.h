@@ -1376,7 +1376,7 @@ void wFSPBWT<Syllable>::inPanelRefine(int L, int s_idx, int e_idx, int index_a, 
 
     if (end - start >= L) {
         out << IDs[index_a] << '\t' << IDs[index_b] << '\t' << start << '\t'
-                << end << '\t' << end - start << '\n';
+                << end-1 << '\t' << end - start << '\n';
 
         ++inPanelMatchNum;
         matchLen+=(end-start);
@@ -1543,7 +1543,7 @@ void wFSPBWT<Syllable>::outPanelRefine(int L, int s_idx, int e_idx, int index_a,
     }
     if (end - start >= L) {
         out << qIDs[index_b] << '\t' << IDs[index_a] << '\t' << start
-                << '\t' << end << '\t' << end - start << '\n';
+                << '\t' << end-1 << '\t' << end - start << '\n';
         ++outPanelMatchNum;
         matchLen += (end - start);
     }
