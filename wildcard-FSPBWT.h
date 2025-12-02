@@ -1446,7 +1446,7 @@ void wFSPBWT<Syllable>::inPanelIdentification(int L, int s_idx, int e_idx, int i
 
         }
         head = tail + 1;
-        while (head < e_idx && !inPanelEqualWithMissing(index_a,index_b,tail)) {
+        while (head < e_idx && !inPanelEqualWithMissing(index_a,index_b,head)) {
             head++;
         }
     }
